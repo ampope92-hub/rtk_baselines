@@ -23,16 +23,26 @@ import threading
 import time
 
 
+def read_session(path):
+    fh = open(path)
+    try:
+        return json.load(fh)
+    finally:
+        fh.close()
+
+
 class Caster:
     def __init__(self, a):
-        with open(a.data) as fh:
-            self.net = json.load(fh)
+        net = read_session(a.data)
+        self.network = net["network"]
+        self.station_list = tuple(net["stations"])
+        self.epochs = net["epochs"]
         self.limit, self.idle = a.limit, a.idle
         self.cursors = {}
         self.lock = threading.Lock()
         self.logpath = a.log
         self.conn_no = 0
-        self.stations = {s["id"]: s for s in self.net["stations"]}
+        self.stations = {s["id"]: s for s in self.station_list}
 
     def log(self, msg):
         if self.logpath:
@@ -40,7 +50,7 @@ class Caster:
                 fh.write(f"{time.monotonic():.3f} {msg}\n")
 
     def epoch_lines(self, st, i):
-        k, t, obs = self.net["epochs"][st][i]
+        k, t, obs = self.epochs[st][i]
         out = [f"EPOCH {k} {t:.1f}"]
         for o in obs:
             out.append("OBS " + " ".join([o[0]] + [f"{v:.3f}" for v in o[1:8]] + [str(o[8])]))
@@ -55,7 +65,7 @@ class Caster:
         rfile = conn.makefile("rb")
         sent = 0
         try:
-            conn.sendall(f"CASTER RTK2 {self.net['network']} limit={self.limit}\n".encode())
+            conn.sendall(f"CASTER RTK2 {self.network} limit={self.limit}\n".encode())
             while True:
                 raw = rfile.readline(4096)
                 if not raw:
@@ -64,7 +74,7 @@ class Caster:
                 f = raw.decode("ascii", "replace").split()
                 if f == ["STATIONS"]:
                     out = []
-                    for s in self.net["stations"]:
+                    for s in self.station_list:
                         out.append(f"STA {s['id']} {s['role']} {s['receiver']} "
                                    + " ".join(f"{v:.4f}" for v in s["xyz"]))
                     out.append("END")
@@ -91,7 +101,7 @@ class Caster:
                             self.log(f"c{cno} ERR cursor")
                             continue
                         i = got[1]
-                    rows = self.net["epochs"][st]
+                    rows = self.epochs[st]
                     while i < len(rows):
                         if sent >= self.limit:
                             tok = secrets.token_hex(8)
