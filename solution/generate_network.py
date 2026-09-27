@@ -92,6 +92,8 @@ def elevation(rx, sv, basis):
 
 
 def build(cfg, seed):
+    # the README's ranges: 60 to 90 epochs, up to seven rovers, up to 15 satellites (vis <= sats[1])
+    assert 60 <= cfg["epochs"] <= 90 and cfg["rovers"] <= 7 and cfg["sats"][1] <= 15
     rng = random.Random(seed)
     ref = geod2ecef(cfg["lat"], cfg["lon"], cfg["h"])
     basis = enu_basis(cfg["lat"], cfg["lon"])

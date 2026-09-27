@@ -61,8 +61,8 @@ tracked:
 - Measurement noise is white. Code scatters by a few decimetres and phase by one to two
   millimetres, whatever the elevation.
 
-A session is 45 to 120 epochs long. There are up to eight rovers, and a station tracks up to
-16 satellites.
+A session is 60 to 90 epochs long. There are up to seven rovers, and a station tracks up to
+15 satellites.
 
 ## Baselines
 

@@ -4,11 +4,12 @@
 //
 //   node main.js        (CASTER_HOST and CASTER_PORT from the environment)
 //
-// Per rover: double differences against the reference station and one pivot satellite, a float
-// least-squares solution for the baseline, one ionospheric offset per satellite pair (steady
-// over the session) and the L1 and L2 ambiguities of every unbroken arc; then the integer
-// ambiguities by integer least squares (LAMBDA: decorrelate with integer Gauss transforms and
-// swaps, then a shrinking-ellipsoid search), and the baseline again with the integers held.
+// Per rover: single differences against the reference station with each epoch's clock taken
+// out (double differences with no fixed pivot), a float least-squares solution for the baseline,
+// one ionospheric offset per satellite (steady over the session) and the L1 and L2 ambiguities of
+// every unbroken arc; then the integer ambiguities by integer least squares (LAMBDA: decorrelate
+// with integer Gauss transforms and swaps, then a shrinking-ellipsoid search), and the baseline
+// again with the integers held.
 // Arcs are cut wherever the receiver raised a loss-of-lock bit or the phase itself shows a jump
 // (geometry-free phase stepping between epochs, or the Melbourne-Wubbena wide lane leaving its
 // running mean), because not every receiver raises the bit.
@@ -238,44 +239,59 @@ function setUp(ses, rov) {
   const R = new Map(ses.epochs[ref].map((e) => [e.k, e]));
   const V = new Map(ses.epochs[rov].map((e) => [e.k, e]));
   const ks = [...V.keys()].filter((k) => R.has(k)).sort((a, b) => a - b);
-  const sats = new Set();
-  for (const k of ks) for (const s of V.get(k).obs.keys()) if (R.get(k).obs.has(s)) sats.add(s);
-  // pivot: seen at both ends in every common epoch, fewest arc breaks, then highest in the sky
-  let pivot = null;
-  let best = [Infinity, -Infinity];
-  const last = ks[ks.length - 1];
-  for (const s of [...sats].sort()) {
-    if (!ks.every((k) => V.get(k).obs.has(s) && R.get(k).obs.has(s))) continue;
-    const breaks = arcs[rov][s].get(last) - arcs[rov][s].get(ks[0]) + arcs[ref][s].get(last) - arcs[ref][s].get(ks[0]);
-    const o = R.get(ks[0]).obs.get(s);
-    const d = [o.x - ses.refXyz[0], o.y - ses.refXyz[1], o.z - ses.refXyz[2]];
-    const up = toEnu(ses.refXyz, d)[2] / Math.hypot(d[0], d[1], d[2]);
-    if (breaks < best[0] || (breaks === best[0] && up > best[1])) { best = [breaks, up]; pivot = s; }
-  }
-  if (pivot === null) throw new Error(`${rov}: no satellite tracked at both ends through the session`);
-  const others = [...sats].filter((s) => s !== pivot).sort();
-  const arcIndex = new Map();
+  // Single differences (rover minus reference) of every satellite both ends see in an epoch. The
+  // epoch's clock is taken out in adjust, which is the same as double differencing against any
+  // satellite of that epoch, so no satellite has to be there all session. One ambiguity per arc
+  // of a single difference; arcs that share an epoch are tied together, and in each tied group
+  // one arc is held as the datum, so every other one is a whole number of cycles from it. The
+  // same for the ionospheric offsets, one per satellite with one satellite held.
+  const up = new Map();
+  const find = (x) => { while (up.get(x) !== x) x = up.get(x); return x; };
+  const join = (x, y) => { up.set(find(x), find(y)); };
+  const count = new Map();
   const epochs = [];
   for (const k of ks) {
     const r = R.get(k).obs;
     const v = V.get(k).obs;
     const list = [];
-    for (const s of others) {
-      if (!r.has(s) || !v.has(s)) continue;
-      // a new arc of the pivot starts new double-difference ambiguities for every satellite
-      const key = `${s}/${arcs[rov][s].get(k)}/${arcs[ref][s].get(k)}/${arcs[rov][pivot].get(k)}/${arcs[ref][pivot].get(k)}`;
-      if (!arcIndex.has(key)) arcIndex.set(key, arcIndex.size);
-      list.push({ s, ion: others.indexOf(s), arc: arcIndex.get(key), r: r.get(s), v: v.get(s) });
+    for (const s of [...v.keys()].sort()) {
+      if (!r.has(s)) continue;
+      const key = `${s}/${arcs[rov][s].get(k)}/${arcs[ref][s].get(k)}`;
+      for (const id of [key, s]) {
+        if (!up.has(id)) up.set(id, id);
+        count.set(id, (count.get(id) || 0) + 1);
+      }
+      list.push({ s, key, r: r.get(s), v: v.get(s) });
     }
-    epochs.push({ pr: r.get(pivot), pv: v.get(pivot), list });
+    if (list.length < 2) continue;
+    for (const q of list) { join(q.key, list[0].key); join(q.s, list[0].s); }
+    epochs.push(list);
   }
-  return { rov, m: others.length, na: arcIndex.size, epochs };
+  // the datum of each group: its longest arc (or most-seen satellite)
+  const datum = new Map();
+  for (const [id, n] of count) {
+    const g = find(id);
+    const d = datum.get(g);
+    if (d === undefined || n > count.get(d) || (n === count.get(d) && id < d)) datum.set(g, id);
+  }
+  const held = new Set(datum.values());
+  const index = new Map();
+  const ionIndex = new Map();
+  for (const list of epochs) {
+    for (const q of list) {
+      if (!held.has(q.key) && !index.has(q.key)) index.set(q.key, index.size);
+      if (!held.has(q.s) && !ionIndex.has(q.s)) ionIndex.set(q.s, ionIndex.size);
+      q.arc = held.has(q.key) ? -1 : index.get(q.key);
+      q.ion = held.has(q.s) ? -1 : ionIndex.get(q.s);
+    }
+  }
+  return { rov, m: ionIndex.size, na: index.size, epochs };
 }
 
-// Least squares on the double differences. Unknowns: baseline correction (3), one ionospheric
-// offset per non-pivot satellite, and, unless `fixed` holds them, L1 then L2 ambiguities per arc.
-// Each epoch's double differences share the pivot, so they are weighted with the inverse of
-// their covariance, 1/(2 sigma^2) (I - J/n) for n satellites in the epoch.
+// Least squares on the single differences, each epoch's clock eliminated. Unknowns: baseline
+// correction (3), the ionospheric offset of every satellite but the held one, and, unless `fixed`
+// holds them, L1 then L2 ambiguities per arc. Eliminating the clock weights an epoch's n single
+// differences with 1/(2 sigma^2) (I - J/n), the inverse covariance of its double differences.
 function adjust(ses, P, b, fixed) {
   const nI = P.m;
   const nA = fixed ? 0 : 2 * P.na;
@@ -294,9 +310,8 @@ function adjust(ses, P, b, fixed) {
     };
   };
   for (const ep of P.epochs) {
-    const p = single(ep.pr, ep.pv);
-    const sd = ep.list.map((q) => ({ q, d: single(q.r, q.v) }));
-    const n = sd.length + 1;
+    const sd = ep.map((q) => ({ q, d: single(q.r, q.v) }));
+    const n = sd.length;
     for (const type of ['L1', 'L2', 'C1', 'C2']) {
       const ionCoef = { L1: -1, L2: -GAM, C1: 1, C2: GAM }[type];
       const phase = type[0] === 'L';
@@ -306,10 +321,10 @@ function adjust(ses, P, b, fixed) {
       let ySum = 0;
       for (const { q, d } of sd) {
         const idx = [0, 1, 2];
-        const val = [d.e[0] - p.e[0], d.e[1] - p.e[1], d.e[2] - p.e[2]];
-        if (nI) { idx.push(3 + q.ion); val.push(ionCoef); }
-        let y = (d[type] - p[type]) - (d.rho - p.rho);
-        if (phase) {
+        const val = [d.e[0], d.e[1], d.e[2]];
+        if (nI && q.ion >= 0) { idx.push(3 + q.ion); val.push(ionCoef); }
+        let y = d[type] - d.rho;
+        if (phase && q.arc >= 0) {
           const wl = type === 'L1' ? W1 : W2;
           const a = (type === 'L1' ? 0 : P.na) + q.arc;
           if (fixed) y -= wl * fixed[a];
