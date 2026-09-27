@@ -34,6 +34,8 @@ class Caster:
         self.network = net["network"]
         self.station_list = tuple(net["stations"])
         self.epochs = net["epochs"]
+        if a.limit < 17:
+            raise SystemExit(f"refusing: a connection must carry at least 17 epochs (got {a.limit})")
         self.limit, self.idle = a.limit, a.idle
         self.cursors = {}
         self.lock = threading.Lock()

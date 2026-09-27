@@ -21,7 +21,7 @@ The first line the caster writes on a new connection is `CASTER RTK2 <network> l
   subscriptions together. Where the next epoch would be number `n + 1`, the caster sends
   `CUT <cursor>` instead and closes. `SUB` with the same station and that cursor, on a new
   connection, carries on from the epoch that was held back. Cursors stay good while the caster
-  runs.
+  runs. A connection carries at least 17 epochs.
 - `ERR <text>` answers an unknown command, station or cursor.
 - A connection that sends nothing for 10 seconds is closed without a word.
 
