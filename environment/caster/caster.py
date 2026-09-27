@@ -17,6 +17,7 @@ A connection idle for --idle seconds is closed without a word.
 """
 import argparse
 import json
+import pathlib
 import secrets
 import socket
 import threading
@@ -24,11 +25,7 @@ import time
 
 
 def read_session(path):
-    fh = open(path)
-    try:
-        return json.load(fh)
-    finally:
-        fh.close()
+    return json.loads(pathlib.Path(path).read_text())
 
 
 class Caster:

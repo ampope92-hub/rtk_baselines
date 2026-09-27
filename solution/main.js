@@ -240,19 +240,19 @@ function setUp(ses, rov) {
   const ks = [...V.keys()].filter((k) => R.has(k)).sort((a, b) => a - b);
   const sats = new Set();
   for (const k of ks) for (const s of V.get(k).obs.keys()) if (R.get(k).obs.has(s)) sats.add(s);
-  // pivot: seen at both ends in every common epoch on one unbroken arc, highest in the sky
+  // pivot: seen at both ends in every common epoch, fewest arc breaks, then highest in the sky
   let pivot = null;
-  let bestUp = -Infinity;
+  let best = [Infinity, -Infinity];
+  const last = ks[ks.length - 1];
   for (const s of [...sats].sort()) {
-    const whole = ks.every((k) => V.get(k).obs.has(s) && R.get(k).obs.has(s)
-      && arcs[rov][s].get(k) === 0 && arcs[ref][s].get(k) === 0);
-    if (!whole) continue;
+    if (!ks.every((k) => V.get(k).obs.has(s) && R.get(k).obs.has(s))) continue;
+    const breaks = arcs[rov][s].get(last) - arcs[rov][s].get(ks[0]) + arcs[ref][s].get(last) - arcs[ref][s].get(ks[0]);
     const o = R.get(ks[0]).obs.get(s);
     const d = [o.x - ses.refXyz[0], o.y - ses.refXyz[1], o.z - ses.refXyz[2]];
     const up = toEnu(ses.refXyz, d)[2] / Math.hypot(d[0], d[1], d[2]);
-    if (up > bestUp) { bestUp = up; pivot = s; }
+    if (breaks < best[0] || (breaks === best[0] && up > best[1])) { best = [breaks, up]; pivot = s; }
   }
-  if (pivot === null) throw new Error(`${rov}: no satellite tracked unbroken through the session`);
+  if (pivot === null) throw new Error(`${rov}: no satellite tracked at both ends through the session`);
   const others = [...sats].filter((s) => s !== pivot).sort();
   const arcIndex = new Map();
   const epochs = [];
@@ -262,7 +262,8 @@ function setUp(ses, rov) {
     const list = [];
     for (const s of others) {
       if (!r.has(s) || !v.has(s)) continue;
-      const key = `${s}/${arcs[rov][s].get(k)}/${arcs[ref][s].get(k)}`;
+      // a new arc of the pivot starts new double-difference ambiguities for every satellite
+      const key = `${s}/${arcs[rov][s].get(k)}/${arcs[ref][s].get(k)}/${arcs[rov][pivot].get(k)}/${arcs[ref][pivot].get(k)}`;
       if (!arcIndex.has(key)) arcIndex.set(key, arcIndex.size);
       list.push({ s, ion: others.indexOf(s), arc: arcIndex.get(key), r: r.get(s), v: v.get(s) });
     }
