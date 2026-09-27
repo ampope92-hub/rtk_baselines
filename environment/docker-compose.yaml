@@ -1,0 +1,26 @@
+services:
+  # The processing box. The harness supplies its build and keepalive; this file only says where
+  # the caster is.
+  main:
+    environment:
+      CASTER_HOST: "127.0.0.1"
+      CASTER_PORT: "2101"
+
+  # The network's caster, in its own image. Every service shares one network namespace, so it
+  # answers on the loopback address.
+  caster:
+    build:
+      context: .
+      dockerfile: Dockerfile.caster
+    restart: unless-stopped
+    command:
+      - "python3"
+      - "/srv/caster/caster.py"
+      - "--data"
+      - "/srv/caster/session.json"
+      - "--host"
+      - "127.0.0.1"
+      - "--port"
+      - "2101"
+      - "--limit"
+      - "40"

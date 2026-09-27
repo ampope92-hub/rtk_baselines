@@ -1,19 +1,19 @@
-# Agent image. Nothing from tests/ or solution/ may ever be copied in here.
-#
-# Pin the base by digest so the image can never drift. To re-pin after changing the
-# tag:  docker buildx imagetools inspect <image>:<tag>
-# REPLACE this base with whatever your task actually needs.
-FROM public.ecr.aws/docker/library/gcc:13-bookworm@sha256:930f2ebe239275fa67226654cb79273ea34eee672ae61c8a39f689c37fb7ac5c
+# The processing box. Node from Debian's own package and nothing else: no npm, no packages. The
+# network's observations are not in this image; they are only reachable through the caster
+# service (Dockerfile.caster), over its socket.
+FROM public.ecr.aws/docker/library/python:3.13-slim-bookworm@sha256:01f42367a0a94ad4bc17111776fd66e3500c1d87c15bbd6055b7371d39c124fb
+
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    CASTER_HOST=127.0.0.1 \
+    CASTER_PORT=2101
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        asciinema \
-        ca-certificates \
-        python3 \
+        nodejs \
         tmux \
+        asciinema \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-
-COPY app/src/ /app/src/
-COPY app/data/ /app/data/
+WORKDIR /app/rtk
+COPY app/rtk/ /app/rtk/

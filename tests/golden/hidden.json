@@ -1,0 +1,124 @@
+{
+ "baseline_mm": {
+  "R01": {
+   "east": -5187435.91,
+   "north": -2158853.09,
+   "up": 1216156.33
+  },
+  "R02": {
+   "east": 1771193.68,
+   "north": 6966605.35,
+   "up": 968770.76
+  },
+  "R03": {
+   "east": 7883501.65,
+   "north": 8782361.88,
+   "up": 888696.85
+  },
+  "R04": {
+   "east": -6341990.61,
+   "north": -636947.08,
+   "up": 1202978.76
+  },
+  "R05": {
+   "east": 35912.49,
+   "north": 2650140.3,
+   "up": 1280383.15
+  },
+  "R06": {
+   "east": -11123469.09,
+   "north": -429426.74,
+   "up": 1099467.81
+  }
+ },
+ "gaps": [
+  {
+   "first": 10,
+   "last": 14,
+   "station": "REF"
+  },
+  {
+   "first": 42,
+   "last": 46,
+   "station": "R04"
+  },
+  {
+   "first": 10,
+   "last": 13,
+   "station": "REF"
+  },
+  {
+   "first": 50,
+   "last": 51,
+   "station": "R03"
+  }
+ ],
+ "masked": {
+  "R01": [
+   "SV23"
+  ],
+  "R02": [
+   "SV23"
+  ],
+  "R03": [],
+  "R04": [],
+  "R05": [
+   "SV23"
+  ],
+  "R06": [
+   "SV23"
+  ]
+ },
+ "network": "RUAP-H",
+ "satellites": 15,
+ "slips": [
+  {
+   "d1": 8,
+   "d2": 7,
+   "epoch": 40,
+   "flagged": false,
+   "sat": "SV32",
+   "station": "R02"
+  },
+  {
+   "d1": -9,
+   "d2": -6,
+   "epoch": 17,
+   "flagged": false,
+   "sat": "SV12",
+   "station": "R04"
+  },
+  {
+   "d1": -7,
+   "d2": -8,
+   "epoch": 12,
+   "flagged": false,
+   "sat": "SV21",
+   "station": "R06"
+  },
+  {
+   "d1": 3,
+   "d2": -9,
+   "epoch": 38,
+   "flagged": true,
+   "sat": "SV06",
+   "station": "R01"
+  },
+  {
+   "d1": -5,
+   "d2": 8,
+   "epoch": 40,
+   "flagged": true,
+   "sat": "SV11",
+   "station": "R03"
+  },
+  {
+   "d1": 6,
+   "d2": -4,
+   "epoch": 22,
+   "flagged": true,
+   "sat": "SV01",
+   "station": "R02"
+  }
+ ]
+}

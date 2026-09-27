@@ -1,11 +1,5 @@
-The summariser in /app is wrong. It runs, but the report it writes does not match what
-downstream expects.
+We run a network of satellite receivers on the volcano: one reference station on the lava plain and rovers up on the edifice, all logging dual-frequency code and carrier phase. I need a node program at `/app/rtk/main.js` that pulls one session for every station off the network's caster and prints a single line of JSON on stdout: an object keyed by rover id, nothing else in it, where each value is an object with `east`, `north` and `up` in mm, the rover's baseline from the reference station. It finds the caster through `CASTER_HOST` and `CASTER_PORT`. `/app/rtk/README.md` covers the caster protocol, the record layouts and the facts the group has collected about its receivers and data.
 
-Rebuild /app/out/report.json for the files under /app/data. The report is a JSON object with
-a "files" array — one entry per .txt file, each with its "name" and its "words" count — ordered
-by name, plus a "total_words" holding the sum of every word counted. It is indented by two
-spaces and ends with a trailing newline.
+Plain JavaScript on the node that's installed, node's built-in modules only, no npm packages. The grader keeps just the regular `.js`, `.mjs` and `.cjs` files and `package.json` sitting directly in `/app/rtk`, then runs `node main.js` from `/app/rtk` with no arguments, twice, against casters it starts itself. The first serves this session on a different address and port with a smaller per-connection limit. The second serves a session from another of our networks that you don't have, reached by host name, with more satellites and a shorter session than this one (inside the ranges the README gives).
 
-Keep it driveable the way CI drives it: the program stays at /app/src/summarize.py and is run as
-`python3 /app/src/summarize.py --data <dir> --out <file>`. CI points it at directories other
-than the one shipped here.
+Each run gets 2 minutes, and in that time the program must pull the complete session from its caster, every epoch of every station, before it prints. The answer must list every rover, and a run passes only if east, north and up are each within 30 mm of the true baseline for all of them.

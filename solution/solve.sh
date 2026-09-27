@@ -1,20 +1,17 @@
 #!/bin/bash
-# Oracle solution.
+# Oracle. Puts the reference tool in place and checks that node parses it.
 #
-# Document what was actually wrong and how the fix was derived — a reviewer reads this
-# to judge whether the task is solvable by reasoning rather than by guessing:
-#
-#   src/summarize.py   Three defects. Entries came back in filesystem order instead of
-#                      sorted by name; total_words counted files rather than words; and
-#                      the report was written without its trailing newline.
-#
-# Harbor mounts solution/ at /solution/ and runs this script as the oracle agent.
+# main.js reads every station's session through the caster (following CUT cursors across
+# connections), forms double differences against the reference station and the highest
+# satellite tracked unbroken all session, and solves each rover in two passes: a float least
+# squares for the baseline, one steady ionospheric offset per satellite and the L1/L2 ambiguities
+# of every arc, then integer least squares on those ambiguities (LAMBDA: decorrelation, then a
+# shrinking search) and the baseline again with the integers held. Arcs are cut on the loss-of-lock
+# bits and on jumps in the geometry-free phase or the wide lane, since the TARN-2 receivers do
+# not always raise the bits.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-cp "$HERE/src/summarize.py" /app/src/summarize.py
-
-python3 /app/src/summarize.py --data /app/data --out /app/out/report.json
-
-sha256sum /app/out/report.json
+cp "$HERE/main.js" /app/rtk/main.js
+cd /app/rtk
+node --check main.js
